@@ -17,7 +17,7 @@ app.use('/api', videosRoutes);
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'online',
-    servico: 'servico-videos',
+    servico: 'video-service',
     timestamp: new Date().toISOString()
   });
 });

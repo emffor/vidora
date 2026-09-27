@@ -1,5 +1,5 @@
 {
-  "name": "servico-favoritos",
+  "name": "@vidora/favorites-service",
   "version": "1.0.0",
   "description": "Serviço de favoritos",
   "main": "dist/index.js",

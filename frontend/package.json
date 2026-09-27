@@ -1,5 +1,5 @@
 {
-  "name": "vidora-frontend",
+  "name": "@vidora/frontend",
   "version": "1.0.0",
   "description": "Frontend Vidora",
   "scripts": {

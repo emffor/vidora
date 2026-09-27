@@ -13,7 +13,7 @@ O Vidora permite:
 ```
 Frontend (Vite + TypeScript)
     ↓ HTTP/REST (JSON)
-Servidor principal / API Gateway (:3000)
+API Gateway (:3000)
     ↓ HTTP/REST (JSON)
 Auth Service (:3001) · Video Service (:3002) · Favorites Service (:3003)
     ↓
@@ -21,10 +21,10 @@ PostgreSQL (vidora_auth :5432, vidora_favoritos :5433)
 ```
 
 - **Frontend:** aplicação TypeScript sem framework, empacotada com Vite. Fala apenas com o gateway (`http://localhost:3000`). Em desenvolvimento, o `vite.config.ts` faz proxy de `/auth`, `/videos` e `/favoritos` para o gateway.
-- **Servidor principal (`backend/servidor-principal`):** ponto único de entrada HTTP. Encaminha requisições para os serviços internos através de proxies (`AuthProxy`, `VideosProxy`, `FavoritosProxy`) usando um `HttpClient` próprio com timeout. Expõe `GET /health`, `GET /api-docs.json` e Swagger UI em `http://localhost:3000/api-docs`. Valida o token Bearer repassando ao Auth Service.
-- **Auth Service (`backend/servico-auth`, :3001):** registro, login e consulta de usuário. Persiste em `vidora_auth`, tabela `usuarios`.
-- **Video Service (`backend/servico-videos`, :3002):** consulta a YouTube Data API v3 (`/search` e `/videos`) e normaliza a resposta para o formato da aplicação. Não possui banco próprio.
-- **Favorites Service (`backend/servico-favoritos`, :3003):** adiciona, remove, lista e verifica favoritos por usuário. Persiste em `vidora_favoritos`, tabela `favoritos` com restrição `UNIQUE(usuario_id, video_id)`.
+- **API Gateway (`backend/api-gateway`):** ponto único de entrada HTTP. Encaminha requisições para os serviços internos através de proxies (`AuthProxy`, `VideosProxy`, `FavoritosProxy`) usando um `HttpClient` próprio com timeout. Expõe `GET /health`, `GET /api-docs.json` e Swagger UI em `http://localhost:3000/api-docs`. Valida o token Bearer repassando ao Auth Service.
+- **Auth Service (`backend/auth-service`, :3001):** registro, login e consulta de usuário. Persiste em `vidora_auth`, tabela `usuarios`.
+- **Video Service (`backend/video-service`, :3002):** consulta a YouTube Data API v3 (`/search` e `/videos`) e normaliza a resposta para o formato da aplicação. Não possui banco próprio.
+- **Favorites Service (`backend/favorites-service`, :3003):** adiciona, remove, lista e verifica favoritos por usuário. Persiste em `vidora_favoritos`, tabela `favoritos` com restrição `UNIQUE(usuario_id, video_id)`.
 
 Cada serviço tem middleware próprio de erro e de CORS, validação nos controllers e `try-catch` nas operações assíncronas.
 
@@ -51,7 +51,7 @@ Cada serviço tem middleware próprio de erro e de CORS, validação nos control
 
 ### Microsserviços com gateway
 
-4 processos separados: `servidor-principal`, `servico-auth`, `servico-videos`, `servico-favoritos`, comunicando-se por HTTP/REST com JSON e timeout configurado.
+4 processos separados: `api-gateway`, `auth-service`, `video-service`, `favorites-service`, comunicando-se por HTTP/REST com JSON e timeout configurado.
 
 - **Positivo:** cada serviço tem responsabilidade clara, pode ser evoluído e escalado de forma independente; falha isolada é mais fácil de localizar por serviço.
 - **Negativo:** comunicação entre serviços é mais lenta que chamada local; depuração distribuída é mais difícil; se um serviço interno cai, as rotas do gateway que dependem dele são afetadas.
@@ -106,20 +106,20 @@ Sem fila ou service mesh: `fetch` com `AbortController` e timeout (5s no gateway
 Cada serviço possui um `.env.example` com valores fictícios. Copie para `.env` e preencha:
 
 ```bash
-cp backend/servico-auth/.env.example backend/servico-auth/.env
-cp backend/servico-videos/.env.example backend/servico-videos/.env
-cp backend/servico-favoritos/.env.example backend/servico-favoritos/.env
-cp backend/servidor-principal/.env.example backend/servidor-principal/.env
+cp backend/auth-service/.env.example backend/auth-service/.env
+cp backend/video-service/.env.example backend/video-service/.env
+cp backend/favorites-service/.env.example backend/favorites-service/.env
+cp backend/api-gateway/.env.example backend/api-gateway/.env
 ```
 
 Variáveis:
 
 | Serviço | Arquivo | Variáveis |
 |---|---|---|
-| servico-auth | `backend/servico-auth/.env` | `PORT=3001`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vidora_auth`, `JWT_SECRET=seu_jwt_secret_aqui`, `JWT_EXPIRES_IN=3600` |
-| servico-videos | `backend/servico-videos/.env` | `PORT=3002`, `YOUTUBE_API_KEY=your_youtube_api_key` |
-| servico-favoritos | `backend/servico-favoritos/.env` | `PORT=3003`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/vidora_favoritos` |
-| servidor-principal | `backend/servidor-principal/.env` | `PORT=3000`, `AUTH_SERVICE_URL=http://localhost:3001`, `VIDEOS_SERVICE_URL=http://localhost:3002`, `FAVORITOS_SERVICE_URL=http://localhost:3003` |
+| auth-service | `backend/auth-service/.env` | `PORT=3001`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vidora_auth`, `JWT_SECRET=seu_jwt_secret_aqui`, `JWT_EXPIRES_IN=3600` |
+| video-service | `backend/video-service/.env` | `PORT=3002`, `YOUTUBE_API_KEY=your_youtube_api_key` |
+| favorites-service | `backend/favorites-service/.env` | `PORT=3003`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/vidora_favoritos` |
+| api-gateway | `backend/api-gateway/.env` | `PORT=3000`, `AUTH_SERVICE_URL=http://localhost:3001`, `VIDEOS_SERVICE_URL=http://localhost:3002`, `FAVORITOS_SERVICE_URL=http://localhost:3003` |
 
 Gere um segredo local para desenvolvimento com:
 
@@ -146,13 +146,13 @@ Alternativa local: PostgreSQL 15+, criar manualmente `vidora_auth` e `vidora_fav
 
 ```bash
 # terminal 1
-cd backend/servico-auth && yarn install && yarn dev
+cd backend/auth-service && yarn install && yarn dev
 # terminal 2
-cd backend/servico-videos && yarn install && yarn dev
+cd backend/video-service && yarn install && yarn dev
 # terminal 3
-cd backend/servico-favoritos && yarn install && yarn dev
+cd backend/favorites-service && yarn install && yarn dev
 # terminal 4
-cd backend/servidor-principal && yarn install && yarn dev
+cd backend/api-gateway && yarn install && yarn dev
 ```
 
 Build de produção por serviço: `yarn build && yarn start`.
@@ -178,10 +178,10 @@ Cada pacote possui Jest configurado (`jest.config.ts` + scripts `test`, `test:wa
 cd frontend && yarn test
 
 # backend (um por serviço)
-cd backend/servico-auth && yarn test
-cd backend/servico-videos && yarn test
-cd backend/servico-favoritos && yarn test
-cd backend/servidor-principal && yarn test
+cd backend/auth-service && yarn test
+cd backend/video-service && yarn test
+cd backend/favorites-service && yarn test
+cd backend/api-gateway && yarn test
 ```
 
 Estrutura existente:

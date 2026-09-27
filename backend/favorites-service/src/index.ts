@@ -17,7 +17,7 @@ app.use('/api', favoritosRoutes);
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'online',
-    servico: 'servico-favoritos',
+    servico: 'favorites-service',
     timestamp: new Date().toISOString()
   });
 });
