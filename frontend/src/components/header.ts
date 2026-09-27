@@ -18,8 +18,8 @@ export class Header {
     this.container.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">
-          <img src="/assets/blueflow.png" alt="BlueFlow" class="navbar-logo" />
-          <h1>BlueFlow</h1>
+          <img src="/assets/vidora.png" alt="Vidora" class="navbar-logo" />
+          <h1>Vidora</h1>
         </div>
         
         ${isAuth ? `

@@ -1,6 +1,6 @@
 import { createHmac } from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'w1IGHxaM55afjIOWiL09KdB4iy6hoSOXiX09U/yup0qpTvsYgm54SB93/qNQ2uqsd/Ye4wqFRiTps/dGeKeZUg==';
+const JWT_SECRET = process.env.JWT_SECRET || 'change_me';
 const JWT_EXPIRES_IN = parseInt(process.env.JWT_EXPIRES_IN || '3600'); // segundos
 
 interface CargaToken {

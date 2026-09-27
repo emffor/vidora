@@ -46,7 +46,7 @@ class App {
 
   private init(): void {
     router.init();
-    console.log('🎬 BlueFlow iniciado');
+    console.log('🎬 Vidora iniciado');
   }
 }
 

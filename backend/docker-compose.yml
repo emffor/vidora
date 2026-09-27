@@ -3,36 +3,36 @@ version: '3.8'
 services:
   postgres-auth:
     image: postgres:15
-    container_name: postgres-blueflow-auth
+    container_name: postgres-vidora-auth
     restart: unless-stopped
     ports:
       - '5432:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: blueflow_auth
+      POSTGRES_DB: vidora_auth
     volumes:
       - postgres-auth-data:/var/lib/postgresql/data
     networks:
-      - blueflow-network
+      - vidora-network
 
   postgres-favoritos:
     image: postgres:15
-    container_name: postgres-blueflow-favoritos
+    container_name: postgres-vidora-favoritos
     restart: unless-stopped
     ports:
       - '5433:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: blueflow_favoritos
+      POSTGRES_DB: vidora_favoritos
     volumes:
       - postgres-favoritos-data:/var/lib/postgresql/data
     networks:
-      - blueflow-network
+      - vidora-network
 
 networks:
-  blueflow-network:
+  vidora-network:
     driver: bridge
 
 volumes:

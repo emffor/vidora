@@ -3,16 +3,23 @@ import { Pool } from 'pg';
 
 dotenv.config();
 
-const pool = new Pool({
-  host: 'localhost',
-  port: 5432,
-  database: 'blueflow_auth',
-  user: 'postgres',
-  password: 'postgres',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  : new Pool({
+      host: 'localhost',
+      port: 5432,
+      database: 'vidora_auth',
+      user: 'postgres',
+      password: 'postgres',
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
 
 export class Database {
   static async query(text: string, params?: any[]) {

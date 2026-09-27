@@ -1,218 +1,208 @@
-# Decisões Técnicas e Trade-offs
+# Vidora
 
-Documentação das principais decisões arquiteturais e tecnológicas do projeto **BlueFlow**.
+Plataforma Full Stack para descoberta, pesquisa e gerenciamento de vídeos, construída com arquitetura de microsserviços.
 
----
+O Vidora permite:
 
-## Arquitetura do Sistema
+- autenticação de usuários (registro, login e rotas protegidas)
+- pesquisa e listagem de vídeos via integração com a API do YouTube
+- gerenciamento de favoritos por usuário autenticado
 
-### Decisão: Dividir em Microsserviços
+## Arquitetura
 
-**O que foi feito:**
-* 4 serviços separados: servico-auth, servico-videos, servico-favoritos, servidor-principal
-* Serviços conversam entre si via HTTP/REST
-* Servidor principal funciona como portão de entrada único
-
-**Por que essa escolha:**
-* Cada serviço cuida de uma coisa específica
-* Dá pra aumentar a capacidade de cada serviço separadamente
-* Cada um pode ser desenvolvido e atualizado de forma independente
-
-**Prós e contras:**
-* **Positivo:** Fácil adicionar coisas novas sem quebrar o que já funciona, se um falhar os outros continuam
-* **Negativo:** Comunicação entre serviços é mais lenta, mais difícil de encontrar erros
-
----
-
-## Tecnologias e Frameworks
-
-### Decisão: Express.js ao invés de Nest.js
-
-**Por que Express:**
-* Controle total de como montar a aplicação
-* Mais leve e direto ao ponto
-* Suficiente para o que o desafio pede
-
-**Prós e contras:**
-* **Positivo:** Total liberdade, fácil de aprender
-* **Negativo:** Tem que montar tudo na mão
-
-### Decisão: TypeScript em tudo
-
-**Por que TypeScript:**
-* Pega erros antes do código rodar
-* Código se explica sozinho com os tipos
-* Requisito do desafio
-
----
-
-## Onde os Dados Ficam Salvos
-
-### Decisão: PostgreSQL desde o começo
-
-**O que foi feito:**
-- Dois bancos de dados PostgreSQL separados
-- blueflow_auth (porta 5432) - guarda usuários e senhas
-- blueflow_favoritos (porta 5433) - guarda vídeos favoritados
-- Usa biblioteca `pg` pra conectar
-- Cada serviço tem seu próprio banco
-
-**Opções de execução:**
-- **Docker (recomendado):** `docker-compose up -d` no diretório `backend/`
-- **Local:** PostgreSQL instalado diretamente na máquina
-
-**Nota sobre bibliotecas:**
-- `pg` é o driver básico de conexão com PostgreSQL
-- Necessário pois o desafio pede PostgreSQL como preferência
-
----
-
-## Segurança e Login
-
-### Decisão: JWT e Hash feitos do zero
-
-**O que foi feito:**
-* JWT criado manualmente com HMAC-SHA256
-* Codificação Base64Url implementada
-* Senha protegida com SHA-256 e sal aleatório de 16 bytes
-* Token Bearer enviado no cabeçalho Authorization
-* Chave secreta JWT gerada com: `node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"`
-
-**Por que essa escolha:**
-* O desafio não permite usar bibliotecas prontas (jsonwebtoken, bcrypt)
-* Mostra que entendo como funciona por baixo dos panos
-
-**Importante:** Em produção de verdade é obrigatório usar bcrypt e jsonwebtoken por segurança.
-
----
-
-## Organização do Código
-
-### Repository + Service Pattern
-
-**Como funciona:**
 ```
-Repository → busca e salva dados (PostgreSQL)
-Service → regras de negócio
-Controller → recebe e responde requisições HTTP
+Frontend (Vite + TypeScript)
+    ↓ HTTP/REST (JSON)
+Servidor principal / API Gateway (:3000)
+    ↓ HTTP/REST (JSON)
+Auth Service (:3001) · Video Service (:3002) · Favorites Service (:3003)
+    ↓
+PostgreSQL (vidora_auth :5432, vidora_favoritos :5433)
 ```
 
-**Por que:**
-* Fácil de testar cada parte separada
-* Cada camada tem sua responsabilidade clara
-* Segue boas práticas de programação
+- **Frontend:** aplicação TypeScript sem framework, empacotada com Vite. Fala apenas com o gateway (`http://localhost:3000`). Em desenvolvimento, o `vite.config.ts` faz proxy de `/auth`, `/videos` e `/favoritos` para o gateway.
+- **Servidor principal (`backend/servidor-principal`):** ponto único de entrada HTTP. Encaminha requisições para os serviços internos através de proxies (`AuthProxy`, `VideosProxy`, `FavoritosProxy`) usando um `HttpClient` próprio com timeout. Expõe `GET /health`, `GET /api-docs.json` e Swagger UI em `http://localhost:3000/api-docs`. Valida o token Bearer repassando ao Auth Service.
+- **Auth Service (`backend/servico-auth`, :3001):** registro, login e consulta de usuário. Persiste em `vidora_auth`, tabela `usuarios`.
+- **Video Service (`backend/servico-videos`, :3002):** consulta a YouTube Data API v3 (`/search` e `/videos`) e normaliza a resposta para o formato da aplicação. Não possui banco próprio.
+- **Favorites Service (`backend/servico-favoritos`, :3003):** adiciona, remove, lista e verifica favoritos por usuário. Persiste em `vidora_favoritos`, tabela `favoritos` com restrição `UNIQUE(usuario_id, video_id)`.
 
-### Factory e Adapter Patterns
+Cada serviço tem middleware próprio de erro e de CORS, validação nos controllers e `try-catch` nas operações assíncronas.
 
-**Como funciona:**
-* **Factory:** HttpClient criado com configurações específicas para cada serviço
-* **Adapter:** YouTubeAdapter traduz dados da API do YouTube pro formato da aplicação
+## Tecnologias
 
-**Por que:**
-* Isola a conversão de dados externos
-* Fácil trocar implementação de clientes HTTP
+- **TypeScript (strict)** em frontend e em todos os serviços backend
+- **Express 5** nos 4 serviços backend
+- **PostgreSQL 15** via Docker Compose (2 bancos isolados por serviço)
+- **Docker / Docker Compose** para o ambiente de dados
+- **Jest + ts-jest** para testes (unitários e de integração)
+- **REST + JSON** na comunicação entre frontend, gateway e microsserviços
+- **YouTube Data API v3** no Video Service
+- Bibliotecas de apoio efetivamente usadas: `pg` (driver PostgreSQL), `cors` (nos serviços que atendem o browser), `swagger-ui-express` (documentação do gateway), `dotenv` (variáveis de ambiente), `vite` (frontend)
 
----
+## Padrões existentes no código
 
-## Como Testar o Código
+- **Repository:** `UsuarioRepository` e `FavoritosRepository` concentram o SQL (`pg`) e o acesso ao PostgreSQL.
+- **Service:** `AuthService`, `YouTubeService` e `FavoritosService` concentram as regras de negócio (ex.: e-mail duplicado, senha inválida, favorito duplicado, tratamento de erros 400/403 do YouTube).
+- **Controller:** camada HTTP fina que valida a entrada e chama o Service correspondente.
+- **Factory:** `HttpClient` é instanciado com baseURL e timeout específicos por consumidor (gateway → serviços internos, Video Service → `https://www.googleapis.com/youtube/v3`, frontend → gateway).
+- **Adapter:** `YouTubeAdapter` traduz `search`/`videos` da API do YouTube para o formato interno (`id`, `titulo`, `descricao`, `canal`, `thumbnail`, `publicadoEm`, paginação).
 
-### Decisão: Jest para testes
+## Decisões técnicas e trade-offs
 
-**Estrutura:**
+### Microsserviços com gateway
+
+4 processos separados: `servidor-principal`, `servico-auth`, `servico-videos`, `servico-favoritos`, comunicando-se por HTTP/REST com JSON e timeout configurado.
+
+- **Positivo:** cada serviço tem responsabilidade clara, pode ser evoluído e escalado de forma independente; falha isolada é mais fácil de localizar por serviço.
+- **Negativo:** comunicação entre serviços é mais lenta que chamada local; depuração distribuída é mais difícil; se um serviço interno cai, as rotas do gateway que dependem dele são afetadas.
+
+### Express em vez de um framework opinativo
+
+Escolha por controle explícito da montagem (middlewares, rotas, erros) e por ser suficiente para o escopo atual.
+
+- **Positivo:** leve, direto e com total liberdade de organização.
+- **Negativo:** mais montagem manual (CORS, erros, validação, docs) em cada serviço.
+
+### TypeScript strict em tudo
+
+- **Positivo:** erros de tipo detectados antes da execução; contratos entre camadas mais explícitos.
+- **Negativo:** exige mais disciplina de tipagem, inclusive nos testes.
+
+### PostgreSQL com um banco por serviço com estado
+
+- `vidora_auth` (porta 5432): usuários e senhas.
+- `vidora_favoritos` (porta 5433): vídeos favoritados.
+- Video Service é stateless e não usa banco.
+
+Decisão documentada como técnica: isolamento de dados por serviço, ao custo de operar dois bancos.
+
+### JWT e hash implementados manualmente
+
+Autenticação via token Bearer no cabeçalho `Authorization`. O JWT é montado manualmente com HMAC-SHA256 e Base64Url; a senha usa SHA-256 com salt aleatório de 16 bytes (formato `salt:hash`).
+
+Trata-se de uma decisão de estudo para explicitar o mecanismo. **Em produção, prefira `bcrypt`/`argon2` para senhas e `jsonwebtoken` (ou equivalente mantido) para JWT**, com rotação de segredo, expiração curta e validação completa.
+
+### HTTP/REST direto entre serviços
+
+Sem fila ou service mesh: `fetch` com `AbortController` e timeout (5s no gateway, 5s no YouTube, 10s no frontend).
+
+- **Positivo:** simples de implementar e depurar.
+- **Negativo:** acoplamento temporal entre gateway e serviços internos.
+
+### Dependências além do núcleo
+
+- `pg`: sem driver não há conexão com o PostgreSQL.
+- `cors`: frontend (`:5173`) e backend (`:3000`-`:3003`) rodam em origens diferentes.
+- `swagger-ui-express`: documentação interativa em `http://localhost:3000/api-docs`.
+
+## Pré-requisitos
+
+- Node 20+ e yarn ou npm
+- Docker e Docker Compose (recomendado para os bancos)
+- Uma chave da YouTube Data API v3
+
+## Configuração de ambiente
+
+Cada serviço possui um `.env.example` com valores fictícios. Copie para `.env` e preencha:
+
+```bash
+cp backend/servico-auth/.env.example backend/servico-auth/.env
+cp backend/servico-videos/.env.example backend/servico-videos/.env
+cp backend/servico-favoritos/.env.example backend/servico-favoritos/.env
+cp backend/servidor-principal/.env.example backend/servidor-principal/.env
 ```
-tests/
-├── unit/           (testa funções e classes isoladas)
-└── integration/    (testa serviços trabalhando juntos)
+
+Variáveis:
+
+| Serviço | Arquivo | Variáveis |
+|---|---|---|
+| servico-auth | `backend/servico-auth/.env` | `PORT=3001`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vidora_auth`, `JWT_SECRET=seu_jwt_secret_aqui`, `JWT_EXPIRES_IN=3600` |
+| servico-videos | `backend/servico-videos/.env` | `PORT=3002`, `YOUTUBE_API_KEY=your_youtube_api_key` |
+| servico-favoritos | `backend/servico-favoritos/.env` | `PORT=3003`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/vidora_favoritos` |
+| servidor-principal | `backend/servidor-principal/.env` | `PORT=3000`, `AUTH_SERVICE_URL=http://localhost:3001`, `VIDEOS_SERVICE_URL=http://localhost:3002`, `FAVORITOS_SERVICE_URL=http://localhost:3003` |
+
+Gere um segredo local para desenvolvimento com:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
 ```
 
-**Por que Jest:**
-* Funciona direto com TypeScript
-* Já vem com tudo que precisa (mocking, coverage)
-* Roda testes em paralelo
+Nunca versione arquivos `.env` com valores reais (o `.gitignore` já ignora `**/.env`).
 
-**Cobertura:** Testes implementados nos serviços de autenticação e validação do frontend
+## Executando
 
----
+### 1. Bancos de dados (Docker, recomendado)
 
-## Como os Serviços Conversam
-
-### Decisão: HTTP/REST direto
-
-**O que foi feito:**
-* HTTP direto entre serviços
-* Dados trafegam em JSON
-* Tempo limite configurado
-
-**Prós e contras:**
-* **Positivo:** Simples de fazer e debugar
-* **Negativo:** Se um serviço cai, pode afetar outros
-
----
-
-## Tratamento de Erros
-
-**O que foi feito:**
-* Middleware de erro centralizado em cada serviço
-* Validações nos controllers antes de processar
-* Try-catch em todas operações assíncronas
-* Mensagens de erro claras pro usuário
-
----
-
-## O Que Foi Entregue
-
-**Requisitos do desafio cumpridos:**
-- TypeScript em todo código (modo strict)
-- Microsserviços funcionando
-- Testes automatizados configurados
-- Padrões de projeto (Repository, Factory, Adapter)
-- Sistema de login e proteção de rotas
-- Busca na API do YouTube
-- Sistema de favoritos por usuário
-- Frontend e backend separados
-
----
-
-## Configuração de Ambiente
-
-### Bancos de Dados
-
-**Docker (recomendado):**
 ```bash
 cd backend/
 docker-compose up -d
 ```
-* Cria automaticamente os dois bancos PostgreSQL
-* Configurado com portas 5432 e 5433
-* Dados persistem em volumes Docker
 
-**Instalação Local:**
-* PostgreSQL 15+ instalado na máquina
-* Criar manualmente os bancos `blueflow_auth` e `blueflow_favoritos`
-* Ajustar portas e credenciais nos arquivos `.env`
+Cria `postgres-vidora-auth` (`vidora_auth`, 5432) e `postgres-vidora-favoritos` (`vidora_favoritos`, 5433) na network `vidora-network`, com persistência em volumes Docker.
 
-### Variáveis de Ambiente
+Alternativa local: PostgreSQL 15+, criar manualmente `vidora_auth` e `vidora_favoritos` e ajustar portas/credenciais nos `.env`.
 
-**Arquivos .env.example:**
-* Contém dados sensíveis (chaves de API, secrets) já preenchidos
-* Normalmente não seria feito por questões de segurança
-* Deixado assim para facilitar os testes do avaliador
-* **Para usar:** copie o conteúdo do `.env.example` para `.env` em cada serviço
+### 2. Backend (4 terminais, ou o gerenciador de processos de sua preferência)
 
-**Arquivos com dados:**
-* `backend/servico-auth/.env.example` - JWT_SECRET já configurado
-* `backend/servico-videos/.env.example` - YOUTUBE_API_KEY já configurado
-* `backend/servico-favoritos/.env.example` - DATABASE_URL configurada
-* `backend/servidor-principal/.env.example` - URLs dos serviços
+```bash
+# terminal 1
+cd backend/servico-auth && yarn install && yarn dev
+# terminal 2
+cd backend/servico-videos && yarn install && yarn dev
+# terminal 3
+cd backend/servico-favoritos && yarn install && yarn dev
+# terminal 4
+cd backend/servidor-principal && yarn install && yarn dev
+```
 
-**Importante:** Em produção, esses dados nunca devem estar versionados.
+Build de produção por serviço: `yarn build && yarn start`.
 
----
+### 3. Frontend
 
-## Bibliotecas Adicionais
+```bash
+cd frontend
+yarn install
+yarn dev
+```
 
-Além das permitidas (Express, Jest, dotenv), foram usadas:
+Acesse `http://localhost:5173`. O frontend consome o gateway em `http://localhost:3000` (com proxy do Vite em desenvolvimento).
 
-**pg:** Sem driver é impossível conectar no PostgreSQL (pedido como preferência no desafio)  
-**cors:** Frontend e backend em portas diferentes, navegador bloqueia sem CORS  
-**swagger-ui-express:** Documentação interativa da API - Docs: http://localhost:3000/api-docs
+Documentação da API: `http://localhost:3000/api-docs` (`GET /api-docs.json` expõe o spec OpenAPI).
+
+## Testes
+
+Cada pacote possui Jest configurado (`jest.config.ts` + scripts `test`, `test:watch`; o gateway possui também `test:ci` com coverage):
+
+```bash
+# frontend
+cd frontend && yarn test
+
+# backend (um por serviço)
+cd backend/servico-auth && yarn test
+cd backend/servico-videos && yarn test
+cd backend/servico-favoritos && yarn test
+cd backend/servidor-principal && yarn test
+```
+
+Estrutura existente:
+
+```
+tests/
+├── unit/         # classes/funções isoladas (ex.: AuthService com mocks, proxies do gateway)
+└── integration/  # serviços trabalhando juntos
+frontend/src/__tests__/  # store de autenticação e validação de formulários
+```
+
+## Endpoints principais (via gateway :3000)
+
+- `POST /auth/registrar` — `{ email, senha }`
+- `POST /auth/entrar` — `{ email, senha }` → `{ token, usuario }`
+- `GET /auth/usuario` — Bearer token
+- `GET /videos/buscar?q=...&pageToken=...`
+- `POST /videos/ids` — `{ ids: string[] }`
+- `GET /favoritos` — Bearer token
+- `POST /favoritos` — Bearer token, `{ videoId }`
+- `DELETE /favoritos/:videoId` — Bearer token
+- `GET /favoritos/:videoId/verificar` — Bearer token
+
+O detalhamento interativo está no Swagger (`/api-docs`).

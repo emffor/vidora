@@ -1,7 +1,7 @@
 {
-  "name": "blueflow-frontend",
+  "name": "vidora-frontend",
   "version": "1.0.0",
-  "description": "Frontend BlueFlow",
+  "description": "Frontend Vidora",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

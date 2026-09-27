@@ -1,7 +1,7 @@
 export const swaggerSpec = {
   openapi: '3.0.0',
   info: {
-    title: 'BlueFlow API',
+    title: 'Vidora API',
     version: '1.0.0',
     description: 'Sistema de favoritos de vídeos do YouTube'
   },
