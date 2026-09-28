@@ -16,7 +16,7 @@ export class LoginPage {
       <div class="auth-container">
         <div class="auth-card">
           <div class="auth-logo">
-            <img src="/assets/youtube.png" alt="Vidora" class="auth-logo-img" />
+            <img src="/assets/vidora.png" alt="Vidora" class="auth-logo-img" />
           </div>
           <h1 class="auth-title">Vidora</h1>
           <p class="auth-subtitle">Seus vídeos favoritos do YouTube</p>
