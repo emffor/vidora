@@ -1,9 +1,11 @@
+import { API_BASE_URL } from './api-config';
+
 export class HttpClient {
   private baseURL: string;
   private timeout: number;
 
-  constructor(baseURL: string = '', timeout: number = 10000) {
-    this.baseURL = baseURL;
+  constructor(baseURL: string = API_BASE_URL, timeout: number = 10000) {
+    this.baseURL = baseURL.replace(/\/$/, '');
     this.timeout = timeout;
   }
 

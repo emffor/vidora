@@ -110,6 +110,7 @@ cp backend/auth-service/.env.example backend/auth-service/.env
 cp backend/video-service/.env.example backend/video-service/.env
 cp backend/favorites-service/.env.example backend/favorites-service/.env
 cp backend/api-gateway/.env.example backend/api-gateway/.env
+cp frontend/.env.example frontend/.env
 ```
 
 Variáveis:
@@ -120,6 +121,7 @@ Variáveis:
 | video-service | `backend/video-service/.env` | `PORT=3002`, `YOUTUBE_API_KEY=your_youtube_api_key` |
 | favorites-service | `backend/favorites-service/.env` | `PORT=3003`, `DATABASE_URL=postgresql://postgres:postgres@localhost:5433/vidora_favoritos` |
 | api-gateway | `backend/api-gateway/.env` | `PORT=3000`, `AUTH_SERVICE_URL=http://localhost:3001`, `VIDEOS_SERVICE_URL=http://localhost:3002`, `FAVORITOS_SERVICE_URL=http://localhost:3003` |
+| frontend | `frontend/.env` | `VITE_API_URL=http://localhost:3000` (opcional; vazia usa proxy do Vite em dev) |
 
 Gere um segredo local para desenvolvimento com:
 
@@ -165,7 +167,7 @@ yarn install
 yarn dev
 ```
 
-Acesse `http://localhost:5173`. O frontend consome o gateway em `http://localhost:3000` (com proxy do Vite em desenvolvimento).
+Acesse `http://localhost:5173`. Com `VITE_API_URL` definido, o frontend chama o gateway diretamente; sem ele, usa caminhos relativos atendidos pelo proxy do Vite em desenvolvimento. Em ambos os casos o gateway precisa estar no ar em `http://localhost:3000` — verifique que nenhum outro processo (ex.: outro `dev server`) esteja ocupando a porta 3000.
 
 Documentação da API: `http://localhost:3000/api-docs` (`GET /api-docs.json` expõe o spec OpenAPI).
 
